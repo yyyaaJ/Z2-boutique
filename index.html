@@ -1005,7 +1005,7 @@ function renderCalendar() {
   ROOMS.forEach(room => {
     if (room.floor !== lastFloor) {
       lastFloor = room.floor;
-      bodyHtml += `<tr class="floor-sep"><td colspan="${totalDays+1}"><span class="fs-label">— ชั้น ${room.floor} —</span></td></tr>`;
+      bodyHtml += `<tr class="floor-sep"><td colspan="${totalDays+1}"><span class="fs-label">— ห้องเลข ${room.floor} —</span></td></tr>`;
     }
 
     bodyHtml += `<tr>`;
