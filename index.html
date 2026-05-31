@@ -16,9 +16,9 @@
     --accent: #4f7cff;
     --accent2: #7c5cfc;
     --gold: #f5c842;
-    --green: #3dd68c;
+    --green: #ffffff;
     --red: #ff5c5c;
-    --orange: #ff9f43;
+    --orange: #ffffff;
     --text: #e8eaf6;
     --text2: #8892b0;
     --text3: #4a527a;
@@ -358,8 +358,8 @@
     overflow: visible;
   }
   .day-cell:hover { background: rgba(79,124,255,.08); }
-  .day-cell.today-col { background: rgba(79,124,255,.04); }
-  .day-cell.weekend { background: rgba(245,200,66,.03); }
+  .day-cell.today-col { background: rgba(79,124,255,.10); }
+  .day-cell.weekend   { background: rgba(245,200,66,.08); }
 
   /* Booking bar */
   .booking-bar {
@@ -705,11 +705,11 @@
 
 <!-- Status Bar -->
 <div class="status-bar">
-  <div class="legend"><div class="legend-dot" style="background:#4f7cff"></div> Superior Twin</div>
-  <div class="legend"><div class="legend-dot" style="background:#7c5cfc"></div> Family Suite</div>
-  <div class="legend"><div class="legend-dot" style="background:#3dd68c"></div> Deluxe</div>
-  <div class="legend"><div class="legend-dot" style="background:#ff9f43"></div> Superior</div>
-  <div class="legend"><div class="legend-dot" style="background:#f5c842"></div> Cabana Suite</div>
+  <div class="legend"><div class="legend-dot" style="background:#5d84fa"></div> โอนครึ่งหนึ่ง</div>
+  <div class="legend"><div class="legend-dot" style="background:#ffffff"></div> ยังไม่โอน</div>
+  <div class="legend"><div class="legend-dot" style="background:#3ef99e"></div> โอนเต็มจำนวน</div>
+  <div class="legend"><div class="legend-dot" style="background:#ff7b00"></div> Agoda</div>
+  <div class="legend"><div class="legend-dot" style="background:#fccd3d"></div> เข้าพักแล้ว</div>
   <div class="sync-dot" id="syncDot" title="สถานะการเชื่อมต่อ"></div>
 </div>
 
@@ -818,42 +818,42 @@ const FLOORS = [
   { floor: 1, label: 'ชั้น 1', rooms: [
     {num:'101'},{num:'102'},{num:'103'},{num:'104'},{num:'105'},
     {num:'106'},{num:'107'},{num:'108'},{num:'109'}
-  ], type: 'Superior Room Twin', color: '#4f7cff' },
+  ], type: 'Superior Room Twin', color: '#ffffff' },
   { floor: 2, label: 'ชั้น 2', rooms: [
     {num:'201'},{num:'202'},{num:'203'},{num:'204'},{num:'205'},
     {num:'206'},{num:'207'},{num:'208'},{num:'209'}
-  ], type: 'Family Suite', color: '#7c5cfc' },
+  ], type: 'Family Suite', color: '#ffffff' },
   { floor: 3, label: 'ชั้น 3', rooms: [
-    {num:'301', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'302', type:'Superior Room', color:'#ff9f43'},
-    {num:'303', type:'Superior Room', color:'#ff9f43'},
-    {num:'304', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'305', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'306', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'307', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'308', type:'Superior Room', color:'#ff9f43'},
-    {num:'309', type:'Superior Room', color:'#ff9f43'},
-    {num:'310', type:'Superior Room', color:'#ff9f43'},
+    {num:'301', type:'Deluxe Room', color:'#ffffff'},
+    {num:'302', type:'Superior Room', color:'#ffffff'},
+    {num:'303', type:'Superior Room', color:'#ffffff'},
+    {num:'304', type:'Deluxe Room', color:'#ffffff'},
+    {num:'305', type:'Deluxe Room', color:'#ffffff'},
+    {num:'306', type:'Deluxe Room', color:'#ffffff'},
+    {num:'307', type:'Deluxe Room', color:'#ffffff'},
+    {num:'308', type:'Superior Room', color:'#ffffff'},
+    {num:'309', type:'Superior Room', color:'#ffffff'},
+    {num:'310', type:'Superior Room', color:'#ffffff'},
   ]},
   { floor: 4, label: 'ชั้น 4', rooms: [
-    {num:'401', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'402', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'403', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'404', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'405', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'406', type:'Deluxe Room', color:'#3dd68c'},
-    {num:'407', type:'Superior Room', color:'#ff9f43'},
-    {num:'408', type:'Superior Room', color:'#ff9f43'},
-    {num:'409', type:'Superior Room', color:'#ff9f43'},
+    {num:'401', type:'Deluxe Room', color:'#ffffff'},
+    {num:'402', type:'Deluxe Room', color:'#ffffff'},
+    {num:'403', type:'Deluxe Room', color:'#ffffff'},
+    {num:'404', type:'Deluxe Room', color:'#ffffff'},
+    {num:'405', type:'Deluxe Room', color:'#ffffff'},
+    {num:'406', type:'Deluxe Room', color:'#ffffff'},
+    {num:'407', type:'Superior Room', color:'#ffffff'},
+    {num:'408', type:'Superior Room', color:'#ffffff'},
+    {num:'409', type:'Superior Room', color:'#ffffff'},
   ]},
   { floor: 5, label: 'ชั้น 5', rooms: [
     {num:'501'},{num:'502'},{num:'503'},{num:'504'},{num:'505'},
     {num:'506'},{num:'507'},{num:'508'},{num:'509'}
-  ], type: 'Cabana Suite', color: '#f5c842' },
+  ], type: 'Cabana Suite', color: '#ffffff' },
   { floor: 6, label: 'ชั้น 6', rooms: [
     {num:'601'},{num:'602'},{num:'603'},{num:'604'},{num:'605'},
     {num:'606'},{num:'607'},{num:'608'},{num:'609'}
-  ], type: 'Superior Room', color: '#ff9f43' },
+  ], type: 'Superior Room', color: '#ffffff' },
 ];
 
 // Flatten rooms
@@ -869,8 +869,7 @@ FLOORS.forEach(f => {
 });
 
 const BOOKING_COLORS = [
-  '#4f7cff','#7c5cfc','#3dd68c','#ff9f43','#f5c842',
-  '#ff5c5c','#26c6da','#ec407a','#66bb6a','#ab47bc'
+  '#5d84fa','#3ef99e','#ffffff','#ff7b00','#fccd3d'
 ];
 
 // ──────────────────────────────────────────────
@@ -981,7 +980,7 @@ function renderCalendar() {
   let headHtml = '<tr><th class="room-header-cell">ห้อง</th>';
   days.forEach(({d, iso, dow}) => {
     const isToday = iso === toISO(today.getFullYear(), today.getMonth(), today.getDate());
-    const isWE = dow === 0 || dow === 6;
+    const isWE = dow === 5 || dow === 6;
     headHtml += `<th class="date-header-cell${isToday?' today-col':''}${isWE?' weekend':''}">
       <div class="dh-day">${DAY_TH[dow]}</div>
       <div class="dh-num">${d}</div>
@@ -1020,25 +1019,33 @@ function renderCalendar() {
     const renderedIds = new Set();
     days.forEach(({d, iso, dow}) => {
       const isToday = iso === toISO(today.getFullYear(), today.getMonth(), today.getDate());
-      const isWE = dow === 0 || dow === 6;
+      const isWE = dow === 5 || dow === 6;
       let cellContent = '';
 
+      let barIndex = 0;
+
       roomBookings[room.num].forEach(b => {
-        if (b.checkin === iso && !renderedIds.has(b.id)) {
-          renderedIds.add(b.id);
-          // Calculate span width
-          const ciDate = isoToDate(b.checkin);
-          const coDate = isoToDate(b.checkout);
-          const spanDays = Math.max(1, Math.round((coDate - ciDate) / 86400000));
-          const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w')) || 42;
-          const barW = spanDays * cellW - 4;
+  const isStart = b.checkin === iso;
+  const isCarryOver = d === 1 && b.checkin < iso && b.checkout > iso;
+  if ((isStart || isCarryOver) && !renderedIds.has(b.id)) {
+    renderedIds.add(b.id);
+    // คำนวณจากวันจริงที่แสดงในเดือนนี้
+    const startISO = isCarryOver ? iso : b.checkin;
+    const lastDayISO = toISO(currentYear, currentMonth, daysInMonth(currentYear, currentMonth) + 1);
+    const endISO = b.checkout <= lastDayISO ? b.checkout : lastDayISO;
+    const ciDate = isoToDate(startISO);
+    const coDate = isoToDate(endISO);
+    const spanDays = Math.max(1, Math.round((coDate - ciDate) / 86400000));
+    const cellW = window.innerWidth <= 480 ? 36 : 42; // fix ค่าตายตัวแก้ Bug 4 ไปด้วย
+    const barW = spanDays * cellW - 4;
           const color = b.color || room.color;
           const name = (b.name || '').substring(0, 14);
           cellContent += `<div class="booking-bar" 
-            style="left:2px;width:${barW}px;background:${color}" 
+            style="left:2px;width:${barW}px;background:${color};top:${4 + barIndex * 20}px"
             onclick="openEditModal(event,'${b.id}')" 
             title="${b.name} | ${b.checkin}→${b.checkout} | ${b.phone||''} | ราคา: ${b.price?b.price+' บาท':'-'}"
           ><span class="bb-name">${name}</span></div>`;
+          barIndex++;  // ← เพิ่มตรงนี้
         }
       });
 
@@ -1288,6 +1295,12 @@ window.searchJump = function(id) {
 window.closeSearch = function(e) {
   if (e.target === document.getElementById('searchResults')) closeSearchPanel();
 };
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeSearchPanel();
+    closeModal();
+  }
+});
 window.closeSearchPanel = function() {
   document.getElementById('searchResults').classList.remove('show');
 };
