@@ -1257,7 +1257,7 @@ function renderCalendar() {
           const txtColor = textColorFor(color);
           const name = escapeHtml((b.name || '').substring(0, 14));
           const titleTxt = escapeHtml(`${b.name||''} | ${b.checkin}→${b.checkout} | ${b.phone||''} | ราคา: ${b.price?b.price+' บาท':'-'}`);
-          cellContent += `<div class="booking-bar"
+          cellContent += `<div class="booking-bar" data-id="${b.id}"
             style="left:2px;width:${barW}px;background:${color};top:4px"
             onclick="openEditModal(event,'${b.id}')"
             title="${titleTxt}"
@@ -1321,8 +1321,9 @@ window.openAddModal = function(roomNum, iso) {
   // Populate room select
   populateRoomSelect(roomNum);
 
-  // Dates
-  const t = iso || toISO(currentYear, currentMonth, new Date().getDate());
+  // Dates (clamp วันไม่ให้เกินจำนวนวันของเดือนที่ดูอยู่ เช่น 31 ในเดือน ก.พ.)
+  const defDay = Math.min(new Date().getDate(), daysInMonth(currentYear, currentMonth));
+  const t = iso || toISO(currentYear, currentMonth, defDay);
   document.getElementById('f_checkin').value = t;
   // checkout = next day (construct via local date to avoid DST offset)
   const [cy, cm, cd] = t.split('-').map(Number);
@@ -1510,8 +1511,8 @@ window.searchJump = function(id) {
   currentMonth = ci.getMonth();
   renderCalendar();
   setTimeout(() => {
-    const todayCell = document.querySelector(`[title*="${b.name}"]`);
-    if (todayCell) todayCell.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'center' });
+    const bar = document.querySelector(`.booking-bar[data-id="${id}"]`);
+    if (bar) bar.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'center' });
     openEditModal({ stopPropagation: ()=>{} }, id);
   }, 150);
 };
