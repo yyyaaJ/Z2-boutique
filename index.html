@@ -295,9 +295,12 @@
     line-height: 1;
   }
   .date-header-cell.today-col .dh-num { color: var(--accent); }
-  .date-header-cell.weekend .dh-num { color: var(--gold); }
+  .date-header-cell.weekend { background: #fae6a8; border-bottom-color: var(--gold); }
+  .date-header-cell.weekend .dh-num { color: #9a6b00; }
+  .date-header-cell.weekend .dh-day { color: #9a6b00; font-weight: 700; }
+  .date-header-cell.holiday { background: #ffd0d0; border-bottom-color: var(--red); }
   .date-header-cell.holiday .dh-num { color: var(--red); }
-  .date-header-cell.holiday .dh-day { color: var(--red); }
+  .date-header-cell.holiday .dh-day { color: var(--red); font-weight: 700; }
 
   /* Room row label */
   .room-label {
@@ -362,8 +365,8 @@
   }
   .day-cell:hover { background: rgba(79,124,255,.08); }
   .day-cell.today-col { background: rgba(79,124,255,.10); }
-  .day-cell.weekend   { background: rgba(245,200,66,.08); }
-  .day-cell.holiday   { background: rgba(255,92,92,.10); }
+  .day-cell.weekend   { background: rgba(245,200,66,.20); }
+  .day-cell.holiday   { background: rgba(255,92,92,.16); }
 
   /* Holiday manager list */
   .holiday-item {
