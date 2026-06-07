@@ -294,6 +294,7 @@
     color: var(--text);
     line-height: 1;
   }
+  .date-header-cell.today-col { box-shadow: inset 0 0 0 2px var(--accent); }
   .date-header-cell.today-col .dh-num { color: var(--accent); }
   .date-header-cell.weekend { background: #fae6a8; border-bottom-color: var(--gold); }
   .date-header-cell.weekend .dh-num { color: #9a6b00; }
@@ -364,7 +365,8 @@
     overflow: visible;
   }
   .day-cell:hover { background: rgba(79,124,255,.08); }
-  .day-cell.today-col { background: rgba(79,124,255,.10); }
+  /* "วันนี้": box-shadow (ring) ไม่มีใครทับ → เห็นเสมอ; background ให้ weekend/holiday (มาทีหลัง) ชนะ */
+  .day-cell.today-col { background: rgba(79,124,255,.10); box-shadow: inset 0 0 0 2px var(--accent); }
   .day-cell.weekend   { background: rgba(245,200,66,.20); }
   .day-cell.holiday   { background: rgba(255,92,92,.16); }
 
@@ -1004,7 +1006,6 @@ let holidays = {}; // 'YYYY-MM-DD' -> name
 let currentYear, currentMonth;
 let editingId = null;
 let selectedColor = BOOKING_COLORS[0];
-let unsubscribe = null;
 
 // ──────────────────────────────────────────────
 // CONFIG
@@ -1105,6 +1106,8 @@ function subscribeHolidays() {
     holidays = snap.val() || {};
     renderCalendar();
     if (document.getElementById('holidayOverlay').classList.contains('show')) renderHolidayList();
+  }, (err) => {
+    showToast('❌ โหลดวันหยุดไม่สำเร็จ: ' + err.message);
   });
 }
 
@@ -1128,9 +1131,14 @@ function renderHolidayList() {
     : entries.map(([date, name]) => `
       <div class="holiday-item">
         <span><span class="hi-date">${escapeHtml(date)}</span> — ${escapeHtml(name)}</span>
-        <button onclick="deleteHoliday('${escapeHtml(date)}')" title="ลบ">🗑</button>
+        <button data-date="${escapeHtml(date)}" title="ลบ">🗑</button>
       </div>`).join('');
 }
+// ลบวันหยุดผ่าน event delegation (เลี่ยง onclick ที่ฝัง string เข้า HTML)
+document.getElementById('holidayList').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-date]');
+  if (btn) deleteHoliday(btn.dataset.date);
+});
 
 window.saveHoliday = function() {
   if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
@@ -1175,6 +1183,7 @@ function renderCalendar() {
   const totalDays = daysInMonth(currentYear, currentMonth);
   const head = document.getElementById('calHead');
   const body = document.getElementById('calBody');
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w')) || 42;
 
   // Build days array
   const days = [];
@@ -1243,7 +1252,6 @@ function renderCalendar() {
     const ciDate = isoToDate(startISO);
     const coDate = isoToDate(endISO);
     const spanDays = Math.max(1, Math.round((coDate - ciDate) / 86400000));
-    const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w')) || 42;
     const barW = spanDays * cellW - 4;
           const color = b.color || room.color;
           const txtColor = textColorFor(color);
