@@ -1953,48 +1953,48 @@ window.exportExcel = function() {
   if (!from || !to) { showToast('⚠️ กรุณาเลือกช่วงวันที่'); return; }
   if (from > to)    { showToast('⚠️ วันเริ่มต้องไม่เกินวันสิ้นสุด'); return; }
 
-  // กรองตามช่วง check-in [from, to] และไม่รวม Agoda (สีส้ม)
-  const list = Object.values(bookings)
-    .filter(b => (b.color || '').toLowerCase() !== AGODA_COLOR
-               && b.checkin >= from && b.checkin <= to)
-    .sort((a, b) => a.checkin.localeCompare(b.checkin) || a.room.localeCompare(b.room));
+  const inRange = Object.values(bookings).filter(b => b.checkin >= from && b.checkin <= to);
+  const byDate = (a, b) => a.checkin.localeCompare(b.checkin) || a.room.localeCompare(b.room);
+  const normal = inRange.filter(b => !isAgodaBooking(b)).sort(byDate);
+  const agoda  = inRange.filter(b =>  isAgodaBooking(b)).sort(byDate);
 
-  if (!list.length) {
-    showToast('ไม่มีข้อมูลในช่วงที่เลือก (ไม่รวม Agoda)');
+  if (!normal.length && !agoda.length) {
+    showToast('ไม่มีข้อมูลในช่วงที่เลือก');
     return;
   }
 
-  const rows = list.map(b => {
+  const header = ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','ราคา','VAT 7%','ราคา+VAT'];
+
+  function toRow(b) {
     const ciDate = isoToDate(b.checkin);
-    const total = Number(b.roomTotal) || 0;
-    const vat     = +( total * 7 / 100  ).toFixed(2);
+    const total   = Number(b.roomTotal) || 0;
+    const vat     = +( total * 0.07 ).toFixed(2);
+    const grand   = +( total + vat ).toFixed(2);
     const rm      = ROOM_MAP[b.room] || {};
-    return {
-      'วัน'         : `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`,
-      'เลขห้อง'     : b.room,
-      'ประเภทห้อง'  : rm.type || '',
-      'ชื่อผู้พัก'  : b.name  || '',
-      'Check-in'    : b.checkin,
-      'Check-out'   : b.checkout,
-      'ราคา'        : isAgodaBooking(b) ? 'Agoda' : total,
-      'VAT 7%'      : vat,
-    };
-  });
+    const dateStr = `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`;
+    return isAgodaBooking(b)
+      ? [dateStr, b.room, rm.type || '', b.name || '', b.checkin, b.checkout, 'Agoda', '', '']
+      : [dateStr, b.room, rm.type || '', b.name || '', b.checkin, b.checkout, total, vat, grand];
+  }
 
-  const ws = XLSX.utils.json_to_sheet(rows, {
-    header: ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','ราคา','VAT 7%',]
-  });
+  const aoa = [header, ...normal.map(toRow)];
 
-  // กำหนดความกว้างคอลัมน์
+  if (agoda.length) {
+    aoa.push([]);                                                     // แถวเว้นว่างคั่น
+    aoa.push(['Agoda (ราคาแยกต่างหาก ไม่รวมในยอดตารางด้านบน)']);         // แถวหัวข้อ
+    aoa.push(header);                                                 // หัวตารางซ้ำสำหรับโซน Agoda
+    agoda.forEach(b => aoa.push(toRow(b)));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [
-    {wch:6},{wch:10},{wch:18},{wch:22},{wch:13},{wch:13},{wch:10},{wch:10}
+    {wch:6},{wch:10},{wch:18},{wch:22},{wch:13},{wch:13},{wch:10},{wch:10},{wch:10}
   ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
   XLSX.writeFile(wb, `booking_${from}_${to}.xlsx`);
   closeExportModal();
-  showToast(`✅ Export ${list.length} รายการสำเร็จ`);
 };
 
 // ──────────────────────────────────────────────
