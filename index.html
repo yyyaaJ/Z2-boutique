@@ -1681,7 +1681,16 @@ function updateRoomType() {
     '<option value="agoda">Agoda (ราคาจาก Agoda)</option>';
   priceSelect.value = prevMode;
 
-  priceSelect.onchange = () => { calcTotal(); checkMemberStatus(); };
+  priceSelect.onchange = () => {
+    if (priceSelect.value === 'agoda') {
+      selectedColor = AGODA_COLOR;
+    } else if (selectedColor === AGODA_COLOR) {
+      selectedColor = BOOKING_COLORS[0];
+    }
+    renderColorSwatches();
+    calcTotal();
+    checkMemberStatus();
+  };
   document.getElementById('f_checkin').onchange = calcTotal;
   document.getElementById('f_checkout').onchange = calcTotal;
   document.getElementById('f_extrabed').onchange = calcTotal;
@@ -1770,6 +1779,16 @@ function renderColorSwatches() {
     sw.onclick = () => {
       selectedColor = c;
       renderColorSwatches();
+      const priceSelect = document.getElementById('f_price');
+      if (c === AGODA_COLOR && priceSelect.value !== 'agoda') {
+        priceSelect.value = 'agoda';
+        calcTotal();
+        checkMemberStatus();
+      } else if (c !== AGODA_COLOR && priceSelect.value === 'agoda') {
+        priceSelect.value = 'auto';
+        calcTotal();
+        checkMemberStatus();
+      }
     };
     row.appendChild(sw);
   });
