@@ -1945,57 +1945,100 @@ window.closeExportModal = function() {
   document.getElementById('exportOverlay').classList.remove('show');
 };
 
+// ──────────────────────────────────────────────
+// EXPORT EXCEL (รวม Agoda แยกไว้ด้านล่าง, ไม่มีคอลัมน์ VAT)
+// ──────────────────────────────────────────────
+window.openExportModal = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  // ค่าเริ่มต้น = เดือนที่กำลังดู (วันที่ 1 ถึงสิ้นเดือน)
+  const lastDay = daysInMonth(currentYear, currentMonth);
+  document.getElementById('exp_from').value = toISO(currentYear, currentMonth, 1);
+  document.getElementById('exp_to').value   = toISO(currentYear, currentMonth, lastDay);
+  document.getElementById('exportOverlay').classList.add('show');
+};
+
+window.closeExportModal = function() {
+  document.getElementById('exportOverlay').classList.remove('show');
+};
+
 window.exportExcel = function() {
   if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  if (typeof XLSX === 'undefined') { showToast('❌ โหลดไลบรารี Excel ไม่สำเร็จ'); return; }
 
   const from = document.getElementById('exp_from').value;
   const to   = document.getElementById('exp_to').value;
   if (!from || !to) { showToast('⚠️ กรุณาเลือกช่วงวันที่'); return; }
   if (from > to)    { showToast('⚠️ วันเริ่มต้องไม่เกินวันสิ้นสุด'); return; }
 
-  const inRange = Object.values(bookings).filter(b => b.checkin >= from && b.checkin <= to);
-  const byDate = (a, b) => a.checkin.localeCompare(b.checkin) || a.room.localeCompare(b.room);
-  const normal = inRange.filter(b => !isAgodaBooking(b)).sort(byDate);
-  const agoda  = inRange.filter(b =>  isAgodaBooking(b)).sort(byDate);
+  // กรองตามช่วง check-in [from, to] — รวมทั้งหมด แล้วแยก Agoda ไว้ด้านล่าง (คนละราคากัน)
+  const inRange = Object.values(bookings)
+    .filter(b => b.checkin >= from && b.checkin <= to);
 
-  if (!normal.length && !agoda.length) {
+  if (!inRange.length) {
     showToast('ไม่มีข้อมูลในช่วงที่เลือก');
     return;
   }
 
-  const header = ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','ราคา','VAT 7%','ราคา+VAT'];
+  const byDate = (a, b) => a.checkin.localeCompare(b.checkin) || String(a.room).localeCompare(String(b.room));
+  const normal = inRange.filter(b => !isAgodaBooking(b)).sort(byDate);
+  const agoda  = inRange.filter(b =>  isAgodaBooking(b)).sort(byDate);
 
-  function toRow(b) {
+  const toRow = (b) => {
     const ciDate = isoToDate(b.checkin);
-    const total   = Number(b.roomTotal) || 0;
-    const vat     = +( total * 0.07 ).toFixed(2);
-    const grand   = +( total + vat ).toFixed(2);
-    const rm      = ROOM_MAP[b.room] || {};
-    const dateStr = `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`;
-    return isAgodaBooking(b)
-      ? [dateStr, b.room, rm.type || '', b.name || '', b.checkin, b.checkout, 'Agoda', '', '']
-      : [dateStr, b.room, rm.type || '', b.name || '', b.checkin, b.checkout, total, vat, grand];
-  }
+    const dateTH = `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`;
+    const rm     = ROOM_MAP[b.room] || {};
+    const ag     = isAgodaBooking(b);
+    const s      = calcStay(rm.type, b.checkin, b.checkout);
+    const nights = Number(b.nights) || s.nights;
+    const wkdy   = (b.weekdayNights != null) ? b.weekdayNights : s.weekdayNights;
+    const wknd   = (b.peakNights != null) ? b.peakNights : s.peakNights;
+    const extrabedTotal = (Number(b.extrabed) || 0) * nights;
+    const roomTotal = Number(b.roomTotal) || s.roomTotal;
+    const total  = Number(b.totalPrice) || (roomTotal + extrabedTotal);
+    const vat    = +( roomTotal * 0.07 ).toFixed(2);   // คิด VAT จากค่าห้องอย่างเดียว ไม่รวมที่นอนเสริม
+    const grand  = +( total + vat ).toFixed(2);
+    const depoM  = b.depositMethod === 'cash' ? 'เงินสด'
+                 : b.depositMethod === 'transfer' ? 'โอน' : '';
+    return {
+      'วัน'          : dateTH,
+      'เลขห้อง'      : b.room,
+      'ประเภทห้อง'   : rm.type || '',
+      'ชื่อผู้พัก'   : b.name  || '',
+      'Check-in'     : b.checkin,
+      'Check-out'    : b.checkout,
+      'จำนวนคืน'     : nights,
+      'คืนธรรมดา'    : ag ? '' : wkdy,
+      'คืนวันหยุด'   : ag ? '' : wknd,
+      'ค่าห้อง'      : ag ? 'Agoda' : roomTotal,
+      'ที่นอนเสริม'  : ag ? '' : extrabedTotal,
+      'ราคารวม'      : ag ? 'Agoda' : total,
+      'VAT 7%'       : ag ? '' : vat,
+      'ราคารวม+VAT'  : ag ? 'Agoda' : grand,
+      'ประกัน'       : b.deposit ? Number(b.deposit) : '',
+      'วิธีชำระประกัน': depoM,
+    };
+  };
 
-  const aoa = [header, ...normal.map(toRow)];
-
+  const header = ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','จำนวนคืน','คืนธรรมดา','คืนวันหยุด','ค่าห้อง','ที่นอนเสริม','ราคารวม','VAT 7%','ราคารวม+VAT','ประกัน','วิธีชำระประกัน'];
+  const rows = normal.map(toRow);
   if (agoda.length) {
-    aoa.push([]);                                                     // แถวเว้นว่างคั่น
-    aoa.push(['Agoda (ราคาแยกต่างหาก ไม่รวมในยอดตารางด้านบน)']);         // แถวหัวข้อ
-    aoa.push(header);                                                 // หัวตารางซ้ำสำหรับโซน Agoda
-    agoda.forEach(b => aoa.push(toRow(b)));
+    rows.push({});                                   // แถวว่างคั่น
+    rows.push({ 'วัน': '── Agoda (คนละราคา) ──' });   // หัวข้อกลุ่ม Agoda
+    agoda.forEach(b => rows.push(toRow(b)));
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.json_to_sheet(rows, { header });
   ws['!cols'] = [
-    {wch:6},{wch:10},{wch:18},{wch:22},{wch:13},{wch:13},{wch:10},{wch:10},{wch:10}
+    {wch:9},{wch:8},{wch:18},{wch:22},{wch:12},{wch:12},{wch:8},{wch:9},{wch:9},{wch:10},{wch:11},{wch:12},{wch:10},{wch:13},{wch:8},{wch:14}
   ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
   XLSX.writeFile(wb, `booking_${from}_${to}.xlsx`);
   closeExportModal();
+  showToast(`✅ Export ${normal.length + agoda.length} รายการ (Agoda ${agoda.length})`);
 };
+
 
 // ──────────────────────────────────────────────
 // TOAST
