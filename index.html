@@ -1411,6 +1411,29 @@ function awardPoints(phoneRaw, isAgoda, roomTotal, discount, checkoutISO) {
   update(ref(db), updates).catch(e => showToast('❌ อัพเดตแต้มไม่สำเร็จ: ' + e.message));
 }
 
+// สคริปต์แปลงข้อมูลราคาเก่า (รันครั้งเดียว) — เรียกผ่าน Console ของเบราว์เซอร์
+window.migrateLegacyPrices = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const updates = {};
+  let count = 0;
+  Object.entries(bookings).forEach(([id, b]) => {
+    if (b.totalPrice != null) return; // ข้ามรายการที่มีข้อมูลใหม่อยู่แล้ว (กันรันซ้ำ)
+    const legacyPrice = Number(b.price) || 0;
+    updates['bookings/' + id + '/roomTotal']  = legacyPrice;
+    updates['bookings/' + id + '/totalPrice'] = legacyPrice;
+    updates['bookings/' + id + '/priceMode']  = 'flat';
+    updates['bookings/' + id + '/extrabed']   = 0;
+    updates['bookings/' + id + '/isAgoda']    = false;
+    updates['bookings/' + id + '/discount']   = 0;
+    count++;
+  });
+  if (count === 0) { showToast('✅ ไม่มีรายการเก่าที่ต้องแปลง'); return; }
+  if (!confirm(`พบการจองเก่า ${count} รายการที่ยังไม่มีข้อมูลราคาใหม่\nต้องการแปลงเลยไหม? (แก้ทีหลังได้ถ้าไม่ตรง)`)) return;
+  update(ref(db), updates)
+    .then(() => showToast(`✅ แปลงข้อมูลเก่า ${count} รายการเรียบร้อย`))
+    .catch(e => showToast('❌ ' + e.message));
+};
+
 // ──────────────────────────────────────────────
 // DATE HELPERS
 // ──────────────────────────────────────────────
