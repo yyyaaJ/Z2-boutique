@@ -959,7 +959,33 @@ import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/fireb
 import {
   getDatabase, ref, set, remove, onValue, push, update
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+// แปลงการจองสีส้มเดือน 7/2026 ที่ยังไม่ถูกตั้งเป็น Agoda จริง (รันครั้งเดียว)
+window.migrateJulyAgodaColor = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const updates = {};
+  let count = 0;
+  Object.entries(bookings).forEach(([id, b]) => {
+    if (!b.checkin || !b.checkin.startsWith('2026-07')) return;          // เฉพาะเดือน 7/2026
+    const colorIsOrange = (b.color || '').toLowerCase() === AGODA_COLOR.toLowerCase();
+    if (!colorIsOrange) return;                                          // ไม่ใช่สีส้ม ข้าม
+    if (isAgodaBooking(b)) return;                                       // ถูกอยู่แล้ว ข้าม
 
+    updates['bookings/' + id + '/isAgoda']    = true;
+    updates['bookings/' + id + '/priceMode']  = 'agoda';
+    updates['bookings/' + id + '/roomTotal']  = 0;
+    updates['bookings/' + id + '/totalPrice'] = 0;
+    updates['bookings/' + id + '/extrabed']   = 0;
+    updates['bookings/' + id + '/discount']   = 0;
+    count++;
+  });
+
+  if (count === 0) { showToast('✅ ไม่มีรายการเดือน 7/2026 ที่ต้องแก้'); return; }
+  if (!confirm(`พบการจองเดือน 7/2026 ที่เป็นสีส้มแต่ยังไม่ถูกตั้งเป็น Agoda ${count} รายการ\nต้องการแปลงเลยไหม?`)) return;
+
+  update(ref(db), updates)
+    .then(() => showToast(`✅ แปลงเป็น Agoda เรียบร้อย ${count} รายการ`))
+    .catch(e => showToast('❌ ' + e.message));
+};
 // ──────────────────────────────────────────────
 // ROOM DEFINITIONS
 // ──────────────────────────────────────────────
