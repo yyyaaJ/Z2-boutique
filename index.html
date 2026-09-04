@@ -960,6 +960,11 @@
   </div>
 </div>
 
+<div class="loading-overlay" id="loadingOverlay" style="display:none">
+  <div class="spinner"></div>
+  <div class="loading-text">กำลังเชื่อมต่อ...</div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1175,6 +1180,7 @@ async function initFirebase(cfg) {
         document.getElementById('loginScreen').style.display = 'none';
         subscribeBookings();
         subscribeHolidays();
+        subscribeMembers();
       } else {
         // ยังไม่ login: ซ่อนข้อมูลทั้งหมด แสดงหน้า login
         bookings = {};
