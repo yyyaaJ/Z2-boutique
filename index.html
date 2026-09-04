@@ -713,11 +713,6 @@
 </div>
 
 <!-- Loading -->
-<div class="loading-overlay" id="loadingOverlay" style="display:none">
-  <div class="spinner"></div>
-  <div class="loading-text">กำลังเชื่อมต่อ Firebase...</div>
-</div>
-
 <div class="config-screen" id="loginScreen" style="display:none">
   <div class="config-box">
     <h2>🔒 เข้าสู่ระบบ</h2>
@@ -751,6 +746,7 @@
   <button class="add-btn" onclick="openAddModal()">+ จอง</button>
   <button class="nav-btn" onclick="openExportModal()" title="Export Excel (ไม่รวม Agoda)" style="font-size:13px;font-weight:600;color:#3ef99e">📊 Excel</button>
   <button class="nav-btn" onclick="openHolidayModal()" title="จัดการวันหยุดนักขัตฤกษ์" style="font-size:13px;font-weight:600;color:var(--red)">📅 วันหยุด</button>
+  <button class="nav-btn" onclick="openMemberModal()" title="ระบบสมาชิกสะสมแต้ม" style="font-size:13px;font-weight:600;color:var(--gold)">🎖 สมาชิก</button>
   <button class="nav-btn" onclick="openConfig()" title="ตั้งค่า Firebase" style="font-size:16px">⚙️</button>
   <button class="nav-btn" onclick="doLogout()" title="ออกจากระบบ">🚪</button>
 </div>
@@ -818,8 +814,14 @@
         <input type="text" id="f_name" placeholder="ชื่อ-นามสกุล">
       </div>
       <div class="form-group">
-        <label>เบอร์โทรศัพท์</label>
-        <input type="tel" id="f_phone" placeholder="0xx-xxx-xxxx">
+        <label>เบอร์โทรศัพท์/หมายเลขการจอง</label>
+        <input type="tel" id="f_phone" placeholder="เบอร์โทรศัพท์/Booking ID" oninput="checkMemberStatus()">
+      </div>
+    </div>
+    <div class="form-row full" id="memberRow" style="display:none">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;justify-content:space-between">
+        <span id="memberStatusTxt" style="font-size:13px;color:var(--text2)"></span>
+        <button type="button" class="nav-btn" id="btnRedeem" onclick="redeemPoints()" style="display:none">🎁 แลกแต้ม (-15 = ส่วนลด 690.-)</button>
       </div>
     </div>
     <div class="form-row">
@@ -828,14 +830,36 @@
         <input type="number" id="f_guests" min="1" value="1">
       </div>
       <div class="form-group">
-        <label>ราคา (บาท)</label>
-        <input type="number" id="f_price" min="0" placeholder="0">
+        <label>ราคา (คิดตามวัน)</label>
+        <select id="f_price"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>ที่นอนเสริม</label>
+        <select id="f_extrabed">
+          <option value="0">ไม่เสริม (0 บาท)</option>
+          <option value="150">พักเพิ่มไม่เสริม (+150 บาท/คืน)</option>
+          <option value="300">เสริมที่นอน (+300 บาท/คืน)</option>
+          <option value="400">เสริมที่นอนDe (+400 บาท/คืน)</option>
+          <option value="490">เสริมที่นอน+อาหาร (+490 บาท/คืน)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ราคารวม (บาท)</label>
+        <input type="text" id="f_total" readonly style="color:var(--gold);font-weight:700">
+      </div>
+    </div>
+    <div class="form-row full" id="flatRow" style="display:none">
+      <div class="form-group">
+        <label>ราคาเหมาจ่าย (บาท) — ราคาห้องที่ตกลงกับลูกค้า</label>
+        <input type="number" id="f_flat" min="0" placeholder="กรอกราคาห้องที่ตกลง">
       </div>
     </div>
     <div class="form-row full">
       <div class="form-group">
         <label>หมายเหตุ</label>
-        <textarea id="f_note" placeholder="ต้องการห้องวิวทะเล, ขอเตียงเสริม ฯลฯ"></textarea>
+        <textarea id="f_note" placeholder="มัดจำครึ่งหนึ่ง, ขอที่นอนเสริม, จัดHBD,  ฯลฯ"></textarea>
       </div>
     </div>
     <div class="form-row full">
@@ -907,6 +931,35 @@
   </div>
 </div>
 
+<!-- Member Modal -->
+<div class="modal-overlay" id="memberOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">
+      <span>🎖 ระบบสมาชิกสะสมแต้ม</span>
+      <button class="modal-close" onclick="closeMemberModal()">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+      ทุก 690 บ. (เฉพาะค่าห้อง ไม่รวมที่นอนเสริม) = 1 แต้ม (ปัดเศษทิ้ง) — ครบ 15 แต้ม แลกส่วนลด 690 บ. ได้ 1 ครั้ง<br>
+      *ต้องสมัครสมาชิกก่อนถึงจะเริ่มสะสมแต้ม ไม่นับย้อนหลัง<br>
+      *แต้มจะใช้ได้ 1 วันหลัง check-out และมีอายุ 2 ปีนับจากวัน check-out
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>เบอร์โทร *</label>
+        <input type="tel" id="mem_phone" placeholder="0xx-xxx-xxxx">
+      </div>
+      <div class="form-group">
+        <label>ชื่อ</label>
+        <input type="text" id="mem_name" placeholder="ชื่อลูกค้า">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="registerMember()">+ สมัครสมาชิก</button>
+    </div>
+    <div id="memberList" style="margin-top:14px;max-height:280px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -922,7 +975,33 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// แปลงการจองสีส้มเดือน 7/2026 ที่ยังไม่ถูกตั้งเป็น Agoda จริง (รันครั้งเดียว)
+window.migrateJulyAgodaColor = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const updates = {};
+  let count = 0;
+  Object.entries(bookings).forEach(([id, b]) => {
+    if (!b.checkin || !b.checkin.startsWith('2026-07')) return;          // เฉพาะเดือน 7/2026
+    const colorIsOrange = (b.color || '').toLowerCase() === AGODA_COLOR.toLowerCase();
+    if (!colorIsOrange) return;                                          // ไม่ใช่สีส้ม ข้าม
+    if (isAgodaBooking(b)) return;                                       // ถูกอยู่แล้ว ข้าม
 
+    updates['bookings/' + id + '/isAgoda']    = true;
+    updates['bookings/' + id + '/priceMode']  = 'agoda';
+    updates['bookings/' + id + '/roomTotal']  = 0;
+    updates['bookings/' + id + '/totalPrice'] = 0;
+    updates['bookings/' + id + '/extrabed']   = 0;
+    updates['bookings/' + id + '/discount']   = 0;
+    count++;
+  });
+
+  if (count === 0) { showToast('✅ ไม่มีรายการเดือน 7/2026 ที่ต้องแก้'); return; }
+  if (!confirm(`พบการจองเดือน 7/2026 ที่เป็นสีส้มแต่ยังไม่ถูกตั้งเป็น Agoda ${count} รายการ\nต้องการแปลงเลยไหม?`)) return;
+
+  update(ref(db), updates)
+    .then(() => showToast(`✅ แปลงเป็น Agoda เรียบร้อย ${count} รายการ`))
+    .catch(e => showToast('❌ ' + e.message));
+};
 // ──────────────────────────────────────────────
 // ROOM DEFINITIONS
 // ──────────────────────────────────────────────
@@ -997,6 +1076,17 @@ const TYPE_COLORS = {
   'Family Suite':       '#5a7bef', // น้ำเงิน
   'Cabana Suite':       '#8b5cf6', // ม่วง
 };
+// ราคาห้อง = [ราคาวันธรรมดา (อา-พฤ), ราคาวันหยุด (ศ-ส และวันหยุดนักขัตฤกษ์)]
+const ROOM_PRICES = {
+  'Superior Room':      [690, 890],
+  'Superior Room Twin': [690, 890],
+  'Deluxe Room':        [1100, 1150],
+  'Sweet Room':         [1390, 1490],
+  'Family Suite':       [1600, 2100],
+  'Cabana Suite':       [1160, 1490],
+};
+// สีแถบ Agoda — ใช้ระบุการจอง Agoda
+const AGODA_COLOR = '#ff7b00';
 
 // ──────────────────────────────────────────────
 // HELPERS
@@ -1024,6 +1114,8 @@ let db = null;
 let firebaseApp = null;
 let bookings = {}; // id -> booking obj
 let holidays = {}; // 'YYYY-MM-DD' -> name
+let members = {};        // phone (normalize แล้ว) -> {phone, name, ledger, createdAt, updatedAt}
+let appliedDiscount = 0; // ส่วนลดที่ใช้ในฟอร์มปัจจุบัน (0 หรือ 690)
 let currentYear, currentMonth;
 let editingId = null;
 let selectedColor = BOOKING_COLORS[0];
@@ -1215,6 +1307,206 @@ window.deleteHoliday = function(date) {
 };
 
 // ──────────────────────────────────────────────
+// MEMBERS (ระบบสมาชิกสะสมแต้ม)
+// ──────────────────────────────────────────────
+const POINT_BASE   = 690;                          // ทุกกี่บาท (เฉพาะค่าห้อง) = 1 แต้ม
+const POINT_REDEEM = 15;                           // ครบกี่แต้มถึงแลกได้
+const REDEEM_VALUE = 690;                          // แลกแล้วได้ส่วนลดกี่บาท
+const MATURE_MS = 24 * 60 * 60 * 1000;             // แต้มต้องรอ 1 วันหลัง check-out ก่อนใช้ได้
+const EXPIRE_MS = 2 * 365 * 24 * 60 * 60 * 1000;   // แต้มหมดอายุ 2 ปีนับจาก check-out
+
+function normalizePhone(p) {
+  return String(p || '').replace(/\D/g, ''); // ตัดขีด/วงเล็บ/ช่องว่างออก เหลือแต่ตัวเลข
+}
+
+function subscribeMembers() {
+  onValue(ref(db, 'members'), (snap) => {
+    members = snap.val() || {};
+    if (document.getElementById('memberOverlay').classList.contains('show')) renderMemberList();
+    checkMemberStatus();
+  }, (err) => showToast('❌ โหลดข้อมูลสมาชิกไม่สำเร็จ: ' + err.message));
+}
+
+// คำนวณแต้มที่ใช้แลกได้จริง ณ ตอนนี้ + แต้มที่ยังรอครบ 1 วันหลัง check-out (จาก ledger)
+function getMemberPoints(phoneRaw) {
+  const phone = normalizePhone(phoneRaw);
+  const m = members[phone];
+  if (!m || !m.ledger) return { usable: 0, pending: 0 };
+  const now = Date.now();
+  let earned = 0, redeemed = 0, pending = 0;
+  Object.values(m.ledger).forEach(e => {
+    if (e.type === 'earn') {
+      const base = e.earnAt != null ? e.earnAt : e.createdAt; // นับจากวัน check-out
+      const age = now - base;
+      if (age < MATURE_MS) pending += e.points;                // ยังไม่ครบ 1 วันหลัง check-out
+      else if (age < EXPIRE_MS) earned += e.points;             // ใช้ได้ (ยังไม่หมดอายุ)
+      // เกิน 2 ปี = หมดอายุ ไม่นับ
+    } else if (e.type === 'redeem') {
+      redeemed += e.points;
+    } else if (e.type === 'adjust') {
+      earned += e.points; // พนักงานปรับด้วยมือ ใช้ได้ทันที ไม่ติดรอ/ไม่หมดอายุ (ใส่ค่าติดลบได้เพื่อหักแต้ม)
+    }
+  });
+  return { usable: Math.max(0, earned - redeemed), pending };
+}
+
+window.openMemberModal = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  document.getElementById('mem_phone').value = '';
+  document.getElementById('mem_name').value = '';
+  renderMemberList();
+  document.getElementById('memberOverlay').classList.add('show');
+};
+window.closeMemberModal = function() {
+  document.getElementById('memberOverlay').classList.remove('show');
+};
+
+function renderMemberList() {
+  const list = document.getElementById('memberList');
+  const entries = Object.values(members)
+    .map(m => ({ ...m, _pts: getMemberPoints(m.phone) }))
+    .sort((a, b) => b._pts.usable - a._pts.usable);
+  list.innerHTML = entries.length === 0
+    ? '<p style="color:var(--text3);font-size:13px">ยังไม่มีสมาชิก</p>'
+    : entries.map(m => `
+      <div class="holiday-item">
+        <span><span class="hi-date">${escapeHtml(m.phone)}</span> ${escapeHtml(m.name||'')} — ${m._pts.usable} แต้ม${m._pts.pending ? ` (+${m._pts.pending} รอครบ 1 วัน)` : ''}</span>
+        <span style="display:flex;gap:10px">
+          <button type="button" onclick="adjustMemberPoints('${m.phone}')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;text-decoration:underline">แก้แต้ม</button>
+          <button type="button" onclick="deleteMember('${m.phone}')" style="background:none;border:none;color:#e5484d;cursor:pointer;font-size:13px;text-decoration:underline">ลบสมาชิก</button>
+        </span>
+      </div>`).join('');
+}
+
+// ปรับแต้มด้วยมือ (บวกหรือลบก็ได้) — มีผลทันที ไม่ติดเงื่อนไข 1 วัน/2 ปี
+window.adjustMemberPoints = function(phone) {
+  const pts = getMemberPoints(phone).usable;
+  const input = prompt(`ปรับแต้มของเบอร์ ${phone}\nแต้มปัจจุบัน: ${pts}\n\nพิมพ์จำนวนที่จะปรับ เช่น 5 (เพิ่ม 5 แต้ม) หรือ -5 (หัก 5 แต้ม)`);
+  if (input === null) return;
+  const delta = parseInt(input, 10);
+  if (!delta || isNaN(delta)) { showToast('⚠️ กรุณาใส่ตัวเลขที่ไม่ใช่ 0'); return; }
+
+  const id = push(ref(db, 'members/' + phone + '/ledger')).key;
+  const updates = {};
+  updates['members/' + phone + '/ledger/' + id] = {
+    type: 'adjust', points: delta, createdAt: Date.now(), reason: 'ปรับโดยพนักงาน'
+  };
+  updates['members/' + phone + '/updatedAt'] = Date.now();
+  update(ref(db), updates)
+    .then(() => showToast(`✅ ปรับแต้ม ${delta > 0 ? '+' : ''}${delta} แต้มแล้ว`))
+    .catch(e => showToast('❌ ' + e.message));
+};
+
+// ลบสมาชิกทั้งคน (ลบประวัติแต้มทั้งหมดด้วย) — ลบแล้วกู้คืนไม่ได้
+window.deleteMember = function(phone) {
+  const m = members[phone];
+  if (!confirm(`ลบสมาชิกเบอร์ ${phone}${m && m.name ? ' (' + m.name + ')' : ''} และแต้มทั้งหมด?\nการลบนี้ย้อนคืนไม่ได้`)) return;
+  remove(ref(db, 'members/' + phone))
+    .then(() => showToast('🗑️ ลบสมาชิกแล้ว'))
+    .catch(e => showToast('❌ ' + e.message));
+};
+
+window.registerMember = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const phone = normalizePhone(document.getElementById('mem_phone').value);
+  const name  = document.getElementById('mem_name').value.trim();
+  if (!phone) { showToast('⚠️ กรุณากรอกเบอร์โทร'); return; }
+  if (members[phone]) { showToast('⚠️ เบอร์นี้เป็นสมาชิกอยู่แล้ว'); return; }
+  set(ref(db, 'members/' + phone), { phone, name, createdAt: Date.now(), updatedAt: Date.now() })
+    .then(() => {
+      showToast('✅ สมัครสมาชิกแล้ว');
+      document.getElementById('mem_phone').value = '';
+      document.getElementById('mem_name').value = '';
+    })
+    .catch(e => showToast('❌ ' + e.message));
+};
+
+// เรียกตอนพิมพ์เบอร์ในฟอร์มจอง / ตอนเปลี่ยนโหมดราคา / ตอนเปิดฟอร์ม
+function checkMemberStatus() {
+  const row = document.getElementById('memberRow');
+  const txt = document.getElementById('memberStatusTxt');
+  const btn = document.getElementById('btnRedeem');
+  if (!row) return;
+  const phone = normalizePhone(document.getElementById('f_phone').value);
+  const mode = document.getElementById('f_price').value;
+  const m = members[phone];
+
+  if (!phone || !m) {
+    row.style.display = 'none';
+    if (appliedDiscount) { appliedDiscount = 0; calcTotal(); }
+    return;
+  }
+  row.style.display = '';
+  const pts = getMemberPoints(phone);
+  const canRedeem = !editingId && mode !== 'agoda' && appliedDiscount === 0 && pts.usable >= POINT_REDEEM;
+  btn.style.display = canRedeem ? '' : 'none';
+  txt.textContent = `🎖 สมาชิก: ${m.name || phone} — ${pts.usable} แต้ม`
+    + (pts.pending ? ` (+${pts.pending} รอครบ 1 วัน)` : '')
+    + (appliedDiscount ? ` (ใช้ส่วนลดแล้ว -${REDEEM_VALUE})` : '');
+}
+
+window.redeemPoints = function() {
+  const phone = normalizePhone(document.getElementById('f_phone').value);
+  const m = members[phone];
+  if (editingId) return; // แลกได้เฉพาะตอนสร้างการจองใหม่
+  const pts = m ? getMemberPoints(phone) : { usable: 0 };
+  if (!m || pts.usable < POINT_REDEEM) { showToast('⚠️ แต้มไม่พอสำหรับแลกส่วนลด'); return; }
+  if (appliedDiscount > 0) return;
+  appliedDiscount = REDEEM_VALUE;
+  calcTotal();
+  checkMemberStatus();
+  showToast('🎁 ใช้ส่วนลดสมาชิก 690 บ. แล้ว (แต้มจะถูกหักจริงตอนกดบันทึก)');
+};
+
+// หักแต้ม+บันทึกแต้มใหม่ลง ledger — เรียกหลังบันทึกการจอง "ใหม่" สำเร็จเท่านั้น
+function awardPoints(phoneRaw, isAgoda, roomTotal, discount, checkoutISO) {
+  if (isAgoda) return; // Agoda ไม่นับแต้ม
+  const phone = normalizePhone(phoneRaw);
+  const m = members[phone];
+  if (!m) return; // ยังไม่ได้สมัครสมาชิก ไม่นับแต้มย้อนหลัง
+
+  const earned = Math.floor(roomTotal / POINT_BASE);
+  const updates = {};
+  const now = Date.now();
+  const earnAt = isoToDate(checkoutISO).getTime(); // เริ่มนับ 1 วัน/หมดอายุ จากวัน check-out
+
+  if (earned > 0) {
+    const id = push(ref(db, 'members/' + phone + '/ledger')).key;
+    updates['members/' + phone + '/ledger/' + id] = { type: 'earn', points: earned, earnAt, createdAt: now, roomTotal };
+  }
+  if (discount > 0) {
+    const id2 = push(ref(db, 'members/' + phone + '/ledger')).key;
+    updates['members/' + phone + '/ledger/' + id2] = { type: 'redeem', points: POINT_REDEEM, createdAt: now };
+  }
+  if (Object.keys(updates).length === 0) return;
+  updates['members/' + phone + '/updatedAt'] = now;
+  update(ref(db), updates).catch(e => showToast('❌ อัพเดตแต้มไม่สำเร็จ: ' + e.message));
+}
+
+// สคริปต์แปลงข้อมูลราคาเก่า (รันครั้งเดียว) — เรียกผ่าน Console ของเบราว์เซอร์
+window.migrateLegacyPrices = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const updates = {};
+  let count = 0;
+  Object.entries(bookings).forEach(([id, b]) => {
+    if (b.totalPrice != null) return; // ข้ามรายการที่มีข้อมูลใหม่อยู่แล้ว (กันรันซ้ำ)
+    const legacyPrice = Number(b.price) || 0;
+    updates['bookings/' + id + '/roomTotal']  = legacyPrice;
+    updates['bookings/' + id + '/totalPrice'] = legacyPrice;
+    updates['bookings/' + id + '/priceMode']  = 'flat';
+    updates['bookings/' + id + '/extrabed']   = 0;
+    updates['bookings/' + id + '/isAgoda']    = false;
+    updates['bookings/' + id + '/discount']   = 0;
+    count++;
+  });
+  if (count === 0) { showToast('✅ ไม่มีรายการเก่าที่ต้องแปลง'); return; }
+  if (!confirm(`พบการจองเก่า ${count} รายการที่ยังไม่มีข้อมูลราคาใหม่\nต้องการแปลงเลยไหม? (แก้ทีหลังได้ถ้าไม่ตรง)`)) return;
+  update(ref(db), updates)
+    .then(() => showToast(`✅ แปลงข้อมูลเก่า ${count} รายการเรียบร้อย`))
+    .catch(e => showToast('❌ ' + e.message));
+};
+
+// ──────────────────────────────────────────────
 // DATE HELPERS
 // ──────────────────────────────────────────────
 const DAY_TH = ['อา','จ','อ','พ','พฤ','ศ','ส'];
@@ -1308,7 +1600,8 @@ function renderCalendar() {
           const color = b.color || room.color;
           const txtColor = textColorFor(color);
           const name = escapeHtml((b.name || '').substring(0, 14));
-          const titleTxt = escapeHtml(`${b.name||''} | ${b.checkin}→${b.checkout} | ${b.phone||''} | ราคา: ${b.price?b.price+' บาท':'-'}`);
+          const priceLabel = isAgodaBooking(b) ? 'Agoda' : (b.totalPrice ? Number(b.totalPrice).toLocaleString()+' บาท' : '-');
+          const titleTxt = escapeHtml(`${b.name||''} | ${b.checkin}→${b.checkout} | ${b.phone||''} | ราคา: ${priceLabel}`);
           cellContent += `<div class="booking-bar" data-id="${b.id}"
             style="left:2px;width:${barW}px;background:${color};top:4px"
             onclick="openEditModal(event,'${b.id}')"
@@ -1385,12 +1678,17 @@ window.openAddModal = function(roomNum, iso) {
   document.getElementById('f_name').value = '';
   document.getElementById('f_phone').value = '';
   document.getElementById('f_guests').value = 1;
-  document.getElementById('f_price').value = '';
   document.getElementById('f_note').value = '';
 
   selectedColor = roomNum && ROOM_MAP[roomNum] ? ROOM_MAP[roomNum].color : BOOKING_COLORS[0];
   renderColorSwatches();
   updateRoomType();
+  document.getElementById('f_extrabed').value = 0;
+  document.getElementById('f_price').value = 'auto';
+  document.getElementById('f_flat').value = '';
+  appliedDiscount = 0;
+  checkMemberStatus();
+  calcTotal();
 
   document.getElementById('modalOverlay').classList.add('show');
 };
@@ -1409,12 +1707,18 @@ window.openEditModal = function(e, id) {
   document.getElementById('f_name').value = b.name || '';
   document.getElementById('f_phone').value = b.phone || '';
   document.getElementById('f_guests').value = b.guests || 1;
-  document.getElementById('f_price').value = b.price || '';
   document.getElementById('f_note').value = b.note || '';
 
   selectedColor = b.color || BOOKING_COLORS[0];
   renderColorSwatches();
   updateRoomType();
+  const priceMode = b.priceMode || (isAgodaBooking(b) ? 'agoda' : 'auto');
+  document.getElementById('f_price').value = priceMode;
+  document.getElementById('f_extrabed').value = b.extrabed || 0;
+  document.getElementById('f_flat').value = priceMode === 'flat' ? (b.roomTotal || '') : '';
+  appliedDiscount = 0;   // แก้ไขการจองเดิม ไม่ให้แลกแต้มซ้ำ
+  checkMemberStatus();
+  calcTotal();
 
   document.getElementById('modalOverlay').classList.add('show');
 };
@@ -1440,6 +1744,101 @@ function updateRoomType() {
   const sel = document.getElementById('f_room');
   const rm = ROOM_MAP[sel.value];
   document.getElementById('f_type').value = rm ? rm.type : '';
+
+  const priceSelect = document.getElementById('f_price');
+  const prevMode = ['agoda','flat'].includes(priceSelect.value) ? priceSelect.value : 'auto';
+  priceSelect.innerHTML =
+    '<option value="auto">อัตโนมัติ (ธรรมดา/วันหยุด)</option>' +
+    '<option value="flat">เหมาจ่าย (กรอกราคาเอง)</option>' +
+    '<option value="agoda">Agoda (ราคาจาก Agoda)</option>';
+  priceSelect.value = prevMode;
+
+  priceSelect.onchange = () => {
+    if (priceSelect.value === 'agoda') {
+      selectedColor = AGODA_COLOR;
+    } else if (selectedColor === AGODA_COLOR) {
+      selectedColor = BOOKING_COLORS[0];
+    }
+    renderColorSwatches();
+    calcTotal();
+    checkMemberStatus();
+  };
+  document.getElementById('f_checkin').onchange = calcTotal;
+  document.getElementById('f_checkout').onchange = calcTotal;
+  document.getElementById('f_extrabed').onchange = calcTotal;
+  document.getElementById('f_flat').oninput = calcTotal;
+  calcTotal();
+}
+
+// คำนวณค่าห้องตลอดการเข้าพัก คิดราคาต่อคืนตามวัน (ศ-ส + วันหยุด = แพง, อา-พฤ = ถูก)
+function calcStay(type, checkinISO, checkoutISO) {
+  const prices = ROOM_PRICES[type] || [0, 0];
+  const p1 = prices[0], p2 = (prices[1] != null ? prices[1] : prices[0]);
+  const weekdayRate = Math.min(p1, p2);
+  const peakRate    = Math.max(p1, p2);
+  let roomTotal = 0, nights = 0, peakNights = 0;
+  let cur = isoToDate(checkinISO);
+  const end = isoToDate(checkoutISO);
+  while (cur < end) {
+    const iso = toISO(cur.getFullYear(), cur.getMonth(), cur.getDate());
+    const dow = cur.getDay();
+    const peak = dow === 5 || dow === 6 || !!holidays[iso];
+    roomTotal += peak ? peakRate : weekdayRate;
+    if (peak) peakNights++;
+    nights++;
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+  }
+  return { roomTotal, nights, peakNights, weekdayNights: nights - peakNights, weekdayRate, peakRate };
+}
+
+function calcTotal() {
+  const mode = document.getElementById('f_price').value;   // 'auto' | 'flat' | 'agoda'
+  document.getElementById('flatRow').style.display = (mode === 'flat') ? '' : 'none';
+
+  if (mode === 'agoda') {
+    document.getElementById('f_total').value = 'Agoda (ราคาจาก Agoda)';
+    return;
+  }
+  const type = document.getElementById('f_type').value;
+  const checkin = document.getElementById('f_checkin').value;
+  const checkout = document.getElementById('f_checkout').value;
+  const extrabed = parseFloat(document.getElementById('f_extrabed').value) || 0;
+
+  if (!checkin || !checkout || isoToDate(checkout) <= isoToDate(checkin)) {
+    document.getElementById('f_total').value = '';
+    return;
+  }
+
+  const nights = Math.max(1, Math.round((isoToDate(checkout) - isoToDate(checkin)) / 86400000));
+  const extrabedTotal = extrabed * nights;
+
+  if (mode === 'flat') {
+    const flat = parseFloat(document.getElementById('f_flat').value) || 0;
+    let total = flat + extrabedTotal - appliedDiscount;
+    if (total < 0) total = 0;
+    let txt = `${total.toLocaleString()} = เหมาจ่าย ${flat.toLocaleString()}`;
+    if (extrabedTotal) txt += ` + ที่นอน ${extrabedTotal.toLocaleString()}`;
+    if (appliedDiscount) txt += ` - ส่วนลดสมาชิก ${appliedDiscount.toLocaleString()}`;
+    document.getElementById('f_total').value = txt;
+    return;
+  }
+
+  const s = calcStay(type, checkin, checkout);
+  let total = s.roomTotal + extrabedTotal - appliedDiscount;
+  if (total < 0) total = 0;
+  const parts = [];
+  if (s.weekdayNights) parts.push(`${s.weekdayNights} คืนธรรมดา×${s.weekdayRate.toLocaleString()}`);
+  if (s.peakNights)    parts.push(`${s.peakNights} คืนหยุด×${s.peakRate.toLocaleString()}`);
+  let txt = `${total.toLocaleString()} = ค่าห้อง ${s.roomTotal.toLocaleString()}`;
+  if (parts.length)    txt += ` (${parts.join(' + ')})`;
+  if (extrabedTotal)   txt += ` + ที่นอน ${extrabedTotal.toLocaleString()}`;
+  if (appliedDiscount) txt += ` - ส่วนลดสมาชิก ${appliedDiscount.toLocaleString()}`;
+  document.getElementById('f_total').value = txt;
+}
+
+// helper เช็คว่าการจองนี้เป็น Agoda หรือไม่ (รองรับข้อมูลเก่า)
+function isAgodaBooking(b) {
+  return b.isAgoda === true || b.priceMode === 'agoda';
 }
 
 function renderColorSwatches() {
@@ -1452,6 +1851,16 @@ function renderColorSwatches() {
     sw.onclick = () => {
       selectedColor = c;
       renderColorSwatches();
+      const priceSelect = document.getElementById('f_price');
+      if (c === AGODA_COLOR && priceSelect.value !== 'agoda') {
+        priceSelect.value = 'agoda';
+        calcTotal();
+        checkMemberStatus();
+      } else if (c !== AGODA_COLOR && priceSelect.value === 'agoda') {
+        priceSelect.value = 'auto';
+        calcTotal();
+        checkMemberStatus();
+      }
     };
     row.appendChild(sw);
   });
@@ -1469,7 +1878,22 @@ window.saveBooking = function() {
   const name = document.getElementById('f_name').value.trim();
   const phone = document.getElementById('f_phone').value.trim();
   const guests = parseInt(document.getElementById('f_guests').value) || 1;
-  const price = parseFloat(document.getElementById('f_price').value) || 0;
+  const mode = document.getElementById('f_price').value;   // 'auto' | 'flat' | 'agoda'
+  const isAgoda = mode === 'agoda';
+  const extrabed = parseFloat(document.getElementById('f_extrabed').value) || 0;
+  const type = (ROOM_MAP[room] || {}).type || '';
+  const nights = Math.max(1, Math.round((isoToDate(checkout) - isoToDate(checkin)) / 86400000));
+  const flatInput = parseFloat(document.getElementById('f_flat').value) || 0;
+
+  let roomTotal = 0, peakNights = 0, weekdayNights = 0, price = 0, totalPrice = 0;
+  if (!isAgoda) {
+    const s = calcStay(type, checkin, checkout);
+    peakNights = s.peakNights;
+    weekdayNights = s.weekdayNights;
+    roomTotal = (mode === 'flat') ? flatInput : s.roomTotal;
+    price = nights ? Math.round(roomTotal / nights) : 0;
+    totalPrice = Math.max(0, roomTotal + (extrabed * nights) - appliedDiscount);
+  }
   const note = document.getElementById('f_note').value.trim();
 
   if (!room || !checkin || !checkout || !name) {
@@ -1487,13 +1911,19 @@ window.saveBooking = function() {
     if (b.room !== room) return false;
     return b.checkin < checkout && b.checkout > checkin;
   });
+  if (mode === 'flat' && flatInput <= 0) {
+    showToast('⚠️ กรุณากรอกราคาเหมาจ่าย');
+    return;
+  }
   if (overlap) {
     showToast('⚠️ ห้องนี้มีการจองซ้อนทับในช่วงวันที่เลือก');
     return;
   }
 
-  const data = { room, checkin, checkout, name, phone, guests, price, note,
-    color: selectedColor, updatedAt: Date.now() };
+  const data = { room, checkin, checkout, name, phone, guests,
+    price, roomTotal, peakNights, weekdayNights, nights, priceMode: mode,
+    extrabed, totalPrice, isAgoda, note, discount: appliedDiscount,
+    color: isAgoda ? AGODA_COLOR : selectedColor, updatedAt: Date.now() };
 
   const syncDot = document.getElementById('syncDot');
   syncDot.className = 'sync-dot syncing';
@@ -1505,7 +1935,12 @@ window.saveBooking = function() {
   } else {
     data.createdAt = Date.now();
     push(ref(db, 'bookings'), data)
-      .then(() => { showToast('✅ บันทึกการจองแล้ว'); closeModal(); })
+      .then(() => {
+        showToast('✅ บันทึกการจองแล้ว');
+        awardPoints(phone, isAgoda, roomTotal, appliedDiscount, checkout);
+        appliedDiscount = 0;
+        closeModal();
+      })
       .catch(e => showToast('❌ ' + e.message));
   }
 };
@@ -1548,7 +1983,7 @@ function runSearch(q) {
     : results.map(([id,b]) => `
       <div class="search-item" onclick="searchJump('${escapeHtml(id)}')">
         <div class="si-name">${escapeHtml(b.name)} — ห้อง ${escapeHtml(b.room)}</div>
-        <div class="si-detail">${escapeHtml(b.checkin)} → ${escapeHtml(b.checkout)} ${b.phone?'| 📞'+escapeHtml(b.phone):''} ${b.price?'| ฿'+Number(b.price).toLocaleString():''}${b.note?'<br>📝 '+escapeHtml(b.note.substring(0,60)):''}</div>
+        <div class="si-detail">${escapeHtml(b.checkin)} → ${escapeHtml(b.checkout)} ${b.phone?'| 📞'+escapeHtml(b.phone):''} ${isAgodaBooking(b)?'| Agoda':(b.totalPrice?'| ฿'+Number(b.totalPrice).toLocaleString():'')}${b.note?'<br>📝 '+escapeHtml(b.note.substring(0,60)):''}</div>
       </div>`).join('');
 
   panel.classList.add('show');
@@ -1587,7 +2022,6 @@ window.closeSearchPanel = function() {
 // ──────────────────────────────────────────────
 // EXPORT EXCEL
 // ──────────────────────────────────────────────
-const AGODA_COLOR = '#ff7b00';
 
 window.openExportModal = function() {
   if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
@@ -1602,59 +2036,100 @@ window.closeExportModal = function() {
   document.getElementById('exportOverlay').classList.remove('show');
 };
 
+// ──────────────────────────────────────────────
+// EXPORT EXCEL (รวม Agoda แยกไว้ด้านล่าง, ไม่มีคอลัมน์ VAT)
+// ──────────────────────────────────────────────
+window.openExportModal = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  // ค่าเริ่มต้น = เดือนที่กำลังดู (วันที่ 1 ถึงสิ้นเดือน)
+  const lastDay = daysInMonth(currentYear, currentMonth);
+  document.getElementById('exp_from').value = toISO(currentYear, currentMonth, 1);
+  document.getElementById('exp_to').value   = toISO(currentYear, currentMonth, lastDay);
+  document.getElementById('exportOverlay').classList.add('show');
+};
+
+window.closeExportModal = function() {
+  document.getElementById('exportOverlay').classList.remove('show');
+};
+
 window.exportExcel = function() {
   if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  if (typeof XLSX === 'undefined') { showToast('❌ โหลดไลบรารี Excel ไม่สำเร็จ'); return; }
 
   const from = document.getElementById('exp_from').value;
   const to   = document.getElementById('exp_to').value;
   if (!from || !to) { showToast('⚠️ กรุณาเลือกช่วงวันที่'); return; }
   if (from > to)    { showToast('⚠️ วันเริ่มต้องไม่เกินวันสิ้นสุด'); return; }
 
-  // กรองตามช่วง check-in [from, to] และไม่รวม Agoda (สีส้ม)
-  const list = Object.values(bookings)
-    .filter(b => (b.color || '').toLowerCase() !== AGODA_COLOR
-               && b.checkin >= from && b.checkin <= to)
-    .sort((a, b) => a.checkin.localeCompare(b.checkin) || a.room.localeCompare(b.room));
+  // กรองตามช่วง check-in [from, to] — รวมทั้งหมด แล้วแยก Agoda ไว้ด้านล่าง (คนละราคากัน)
+  const inRange = Object.values(bookings)
+    .filter(b => b.checkin >= from && b.checkin <= to);
 
-  if (!list.length) {
-    showToast('ไม่มีข้อมูลในช่วงที่เลือก (ไม่รวม Agoda)');
+  if (!inRange.length) {
+    showToast('ไม่มีข้อมูลในช่วงที่เลือก');
     return;
   }
 
-  const rows = list.map(b => {
+  const byDate = (a, b) => a.checkin.localeCompare(b.checkin) || String(a.room).localeCompare(String(b.room));
+  const normal = inRange.filter(b => !isAgodaBooking(b)).sort(byDate);
+  const agoda  = inRange.filter(b =>  isAgodaBooking(b)).sort(byDate);
+
+  const toRow = (b) => {
     const ciDate = isoToDate(b.checkin);
-    const price   = Number(b.price) || 0;
-    const vat     = +( price * 0.07 ).toFixed(2);
-    const total   = +( price + vat  ).toFixed(2);
-    const rm      = ROOM_MAP[b.room] || {};
+    const dateTH = `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`;
+    const rm     = ROOM_MAP[b.room] || {};
+    const ag     = isAgodaBooking(b);
+    const s      = calcStay(rm.type, b.checkin, b.checkout);
+    const nights = Number(b.nights) || s.nights;
+    const wkdy   = (b.weekdayNights != null) ? b.weekdayNights : s.weekdayNights;
+    const wknd   = (b.peakNights != null) ? b.peakNights : s.peakNights;
+    const extrabedTotal = (Number(b.extrabed) || 0) * nights;
+    const roomTotal = Number(b.roomTotal) || s.roomTotal;
+    const total  = Number(b.totalPrice) || (roomTotal + extrabedTotal);
+    const vat    = +( roomTotal * 0.07 ).toFixed(2);   // คิด VAT จากค่าห้องอย่างเดียว ไม่รวมที่นอนเสริม
+    const grand  = +( total + vat ).toFixed(2);
+    const depoM  = b.depositMethod === 'cash' ? 'เงินสด'
+                 : b.depositMethod === 'transfer' ? 'โอน' : '';
     return {
-      'วัน'         : `${ciDate.getDate()}/${ciDate.getMonth()+1}/${String(ciDate.getFullYear()+543).slice(-2)}`,
-      'เลขห้อง'     : b.room,
-      'ประเภทห้อง'  : rm.type || '',
-      'ชื่อผู้พัก'  : b.name  || '',
-      'Check-in'    : b.checkin,
-      'Check-out'   : b.checkout,
-      'ราคา'        : price,
-      'VAT 7%'      : vat,
-      'ราคา+VAT'    : total,
+      'วัน'          : dateTH,
+      'เลขห้อง'      : b.room,
+      'ประเภทห้อง'   : rm.type || '',
+      'ชื่อผู้พัก'   : b.name  || '',
+      'Check-in'     : b.checkin,
+      'Check-out'    : b.checkout,
+      'จำนวนคืน'     : nights,
+      'คืนธรรมดา'    : ag ? '' : wkdy,
+      'คืนวันหยุด'   : ag ? '' : wknd,
+      'ค่าห้อง'      : ag ? 'Agoda' : roomTotal,
+      'ที่นอนเสริม'  : ag ? '' : extrabedTotal,
+      'ราคารวม'      : ag ? 'Agoda' : total,
+      'VAT 7%'       : ag ? '' : vat,
+      'ราคารวม+VAT'  : ag ? 'Agoda' : grand,
+      'ประกัน'       : b.deposit ? Number(b.deposit) : '',
+      'วิธีชำระประกัน': depoM,
     };
-  });
+  };
 
-  const ws = XLSX.utils.json_to_sheet(rows, {
-    header: ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','ราคา','VAT 7%','ราคา+VAT']
-  });
+  const header = ['วัน','เลขห้อง','ประเภทห้อง','ชื่อผู้พัก','Check-in','Check-out','จำนวนคืน','คืนธรรมดา','คืนวันหยุด','ค่าห้อง','ที่นอนเสริม','ราคารวม','VAT 7%','ราคารวม+VAT','ประกัน','วิธีชำระประกัน'];
+  const rows = normal.map(toRow);
+  if (agoda.length) {
+    rows.push({});                                   // แถวว่างคั่น
+    rows.push({ 'วัน': '── Agoda (คนละราคา) ──' });   // หัวข้อกลุ่ม Agoda
+    agoda.forEach(b => rows.push(toRow(b)));
+  }
 
-  // กำหนดความกว้างคอลัมน์
+  const ws = XLSX.utils.json_to_sheet(rows, { header });
   ws['!cols'] = [
-    {wch:6},{wch:10},{wch:18},{wch:22},{wch:13},{wch:13},{wch:10},{wch:10},{wch:12}
+    {wch:9},{wch:8},{wch:18},{wch:22},{wch:12},{wch:12},{wch:8},{wch:9},{wch:9},{wch:10},{wch:11},{wch:12},{wch:10},{wch:13},{wch:8},{wch:14}
   ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
   XLSX.writeFile(wb, `booking_${from}_${to}.xlsx`);
   closeExportModal();
-  showToast(`✅ Export ${list.length} รายการสำเร็จ`);
+  showToast(`✅ Export ${normal.length + agoda.length} รายการ (Agoda ${agoda.length})`);
 };
+
 
 // ──────────────────────────────────────────────
 // TOAST
