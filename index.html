@@ -1381,6 +1381,7 @@ function renderMemberList() {
         <span><span class="hi-date">${escapeHtml(m.phone)}</span> ${escapeHtml(m.name||'')} — ${m._pts.usable} แต้ม${m._pts.pending ? ` (+${m._pts.pending} รอครบ 1 วัน)` : ''}</span>
         <span style="display:flex;gap:10px">
           <button type="button" onclick="adjustMemberPoints('${m.phone}')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;text-decoration:underline">แก้แต้ม</button>
+          <button type="button" onclick="startEditMember('${m.phone}')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;text-decoration:underline">แก้ไข</button>
           <button type="button" onclick="deleteMember('${m.phone}')" style="background:none;border:none;color:#e5484d;cursor:pointer;font-size:13px;text-decoration:underline">ลบสมาชิก</button>
         </span>
       </div>`).join('');
@@ -1414,20 +1415,6 @@ window.deleteMember = function(phone) {
     .catch(e => showToast('❌ ' + e.message));
 };
 
-window.registerMember = function() {
-  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
-  const phone = normalizePhone(document.getElementById('mem_phone').value);
-  const name  = document.getElementById('mem_name').value.trim();
-  if (!phone) { showToast('⚠️ กรุณากรอกเบอร์โทร'); return; }
-  if (members[phone]) { showToast('⚠️ เบอร์นี้เป็นสมาชิกอยู่แล้ว'); return; }
-  set(ref(db, 'members/' + phone), { phone, name, createdAt: Date.now(), updatedAt: Date.now() })
-    .then(() => {
-      showToast('✅ สมัครสมาชิกแล้ว');
-      document.getElementById('mem_phone').value = '';
-      document.getElementById('mem_name').value = '';
-    })
-    .catch(e => showToast('❌ ' + e.message));
-};
 let editingMemberPhone = null;
 
 window.startEditMember = function(phone) {
