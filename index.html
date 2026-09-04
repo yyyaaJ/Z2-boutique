@@ -954,7 +954,7 @@
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn-save" onclick="registerMember()">+ สมัครสมาชิก</button>
+      <button class="btn-save" id="memSaveBtn" onclick="registerMember()">+ สมัครสมาชิก</button>
     </div>
     <div id="memberList" style="margin-top:14px;max-height:280px;overflow-y:auto"></div>
   </div>
@@ -1366,6 +1366,7 @@ window.openMemberModal = function() {
 };
 window.closeMemberModal = function() {
   document.getElementById('memberOverlay').classList.remove('show');
+  resetMemberForm();
 };
 
 function renderMemberList() {
@@ -1425,6 +1426,44 @@ window.registerMember = function() {
       document.getElementById('mem_phone').value = '';
       document.getElementById('mem_name').value = '';
     })
+    .catch(e => showToast('❌ ' + e.message));
+};
+let editingMemberPhone = null;
+
+window.startEditMember = function(phone) {
+  const m = members[phone];
+  if (!m) return;
+  document.getElementById('mem_phone').value = m.phone;
+  document.getElementById('mem_phone').readOnly = true; // เบอร์เป็น key หลัก ห้ามแก้ตรงนี้
+  document.getElementById('mem_name').value = m.name || '';
+  document.getElementById('memSaveBtn').textContent = '💾 บันทึกการแก้ไข';
+  editingMemberPhone = phone;
+};
+
+function resetMemberForm() {
+  document.getElementById('mem_phone').value = '';
+  document.getElementById('mem_phone').readOnly = false;
+  document.getElementById('mem_name').value = '';
+  document.getElementById('memSaveBtn').textContent = '+ สมัครสมาชิก';
+  editingMemberPhone = null;
+}
+
+window.registerMember = function() {
+  if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  const phone = normalizePhone(document.getElementById('mem_phone').value);
+  const name  = document.getElementById('mem_name').value.trim();
+  if (!phone) { showToast('⚠️ กรุณากรอกเบอร์โทร'); return; }
+
+  if (editingMemberPhone) {
+    update(ref(db, 'members/' + editingMemberPhone), { name, updatedAt: Date.now() })
+      .then(() => { showToast('✅ แก้ไขข้อมูลสมาชิกแล้ว'); resetMemberForm(); })
+      .catch(e => showToast('❌ ' + e.message));
+    return;
+  }
+
+  if (members[phone]) { showToast('⚠️ เบอร์นี้เป็นสมาชิกอยู่แล้ว'); return; }
+  set(ref(db, 'members/' + phone), { phone, name, createdAt: Date.now(), updatedAt: Date.now() })
+    .then(() => { showToast('✅ สมัครสมาชิกแล้ว'); resetMemberForm(); })
     .catch(e => showToast('❌ ' + e.message));
 };
 
