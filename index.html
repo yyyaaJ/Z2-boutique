@@ -819,9 +819,12 @@
       </div>
     </div>
     <div class="form-row full" id="memberRow" style="display:none">
-      <div class="form-group" style="display:flex;align-items:center;gap:10px;justify-content:space-between">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">
         <span id="memberStatusTxt" style="font-size:13px;color:var(--text2)"></span>
-        <button type="button" class="nav-btn" id="btnRedeem" onclick="redeemPoints()" style="display:none">🎁 แลกแต้ม (-15 = ส่วนลด 690.-)</button>
+        <div id="redeemWrap" style="display:none;gap:6px;align-items:center">
+          <select id="redeemTierSelect" style="font-size:12px;padding:5px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></select>
+          <button type="button" class="nav-btn" id="btnRedeem" onclick="redeemPoints()">🎁 แลก</button>
+        </div>
       </div>
     </div>
     <div class="form-row">
@@ -872,6 +875,7 @@
     <div class="form-actions">
       <button class="btn-save" onclick="saveBooking()">💾 บันทึก</button>
       <button class="btn-delete" id="btnDelete" onclick="deleteBooking()" style="display:none">🗑</button>
+      <button class="nav-btn" id="btnPostpone" onclick="postponeBooking()" style="display:none;color:var(--orange);font-weight:600">📅 เลื่อนวันพัก</button>
       <button class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
     </div>
   </div>
@@ -939,9 +943,11 @@
       <button class="modal-close" onclick="closeMemberModal()">✕</button>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-      ทุก 690 บ. (เฉพาะค่าห้อง ไม่รวมที่นอนเสริม) = 1 แต้ม (ปัดเศษทิ้ง) — ครบ 15 แต้ม แลกส่วนลด 690 บ. ได้ 1 ครั้ง<br>
+      ทุก 690 บ. (เฉพาะค่าห้อง ไม่รวมที่นอนเสริม) = 1 แต้ม (ปัดเศษทิ้ง)<br>
+      15 แต้ม = ส่วนลด 500 บ. &nbsp;|&nbsp; 30 แต้ม = ส่วนลด 1,100 บ. &nbsp;|&nbsp; 45 แต้ม = ส่วนลด 1,600 บ.<br>
       *ต้องสมัครสมาชิกก่อนถึงจะเริ่มสะสมแต้ม ไม่นับย้อนหลัง<br>
-      *แต้มจะใช้ได้ 1 วันหลัง check-out และมีอายุ 2 ปีนับจากวัน check-out
+      *แต้มจะใช้ได้ 1 วันหลัง check-out และมีอายุ 2 ปีนับจากวัน check-out<br>
+      *การจองที่กด "เลื่อนวันพัก" จะไม่นับแต้มสะสมสำหรับรอบนั้น
     </p>
     <div class="form-row">
       <div class="form-group">
@@ -1121,6 +1127,7 @@ let bookings = {}; // id -> booking obj
 let holidays = {}; // 'YYYY-MM-DD' -> name
 let members = {};        // phone (normalize แล้ว) -> {phone, name, ledger, createdAt, updatedAt}
 let appliedDiscount = 0; // ส่วนลดที่ใช้ในฟอร์มปัจจุบัน (0 หรือ 690)
+let appliedRedeemPoints = 0;
 let currentYear, currentMonth;
 let editingId = null;
 let selectedColor = BOOKING_COLORS[0];
@@ -1317,11 +1324,16 @@ window.deleteHoliday = function(date) {
 // ──────────────────────────────────────────────
 // MEMBERS (ระบบสมาชิกสะสมแต้ม)
 // ──────────────────────────────────────────────
-const POINT_BASE   = 690;                          // ทุกกี่บาท (เฉพาะค่าห้อง) = 1 แต้ม
-const POINT_REDEEM = 15;                           // ครบกี่แต้มถึงแลกได้
-const REDEEM_VALUE = 690;                          // แลกแล้วได้ส่วนลดกี่บาท
-const MATURE_MS = 24 * 60 * 60 * 1000;             // แต้มต้องรอ 1 วันหลัง check-out ก่อนใช้ได้
-const EXPIRE_MS = 2 * 365 * 24 * 60 * 60 * 1000;   // แต้มหมดอายุ 2 ปีนับจาก check-out
+const POINT_BASE = 690;                          // ทุกกี่บาท (เฉพาะค่าห้อง) = 1 แต้ม
+const MATURE_MS = 24 * 60 * 60 * 1000;
+const EXPIRE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+
+// ระดับการแลกแต้ม (เรียงจากน้อยไปมาก)
+const REDEEM_TIERS = [
+  { points: 15, value: 500 },
+  { points: 30, value: 1100 },
+  { points: 45, value: 1600 },
+];
 
 function normalizePhone(p) {
   return String(p || '').replace(/\D/g, ''); // ตัดขีด/วงเล็บ/ช่องว่างออก เหลือแต่ตัวเลข
@@ -1360,7 +1372,7 @@ function getMemberPoints(phoneRaw) {
       if (age < MATURE_MS) pending += e.points;                // ยังไม่ครบ 1 วันหลัง check-out
       else if (age < EXPIRE_MS) earned += e.points;             // ใช้ได้ (ยังไม่หมดอายุ)
       // เกิน 2 ปี = หมดอายุ ไม่นับ
-    } else if (e.type === 'redeem') {
+    } else if (e.type === 'redeem' || e.type === 'void') {
       redeemed += e.points;
     } else if (e.type === 'adjust') {
       earned += e.points; // พนักงานปรับด้วยมือ ใช้ได้ทันที ไม่ติดรอ/ไม่หมดอายุ (ใส่ค่าติดลบได้เพื่อหักแต้ม)
@@ -1371,8 +1383,7 @@ function getMemberPoints(phoneRaw) {
 
 window.openMemberModal = function() {
   if (!db) { showToast('❌ ยังไม่ได้เชื่อมต่อ Firebase'); return; }
-  document.getElementById('mem_phone').value = '';
-  document.getElementById('mem_name').value = '';
+  resetMemberForm();
   renderMemberList();
   document.getElementById('memberOverlay').classList.add('show');
 };
@@ -1472,7 +1483,8 @@ window.registerMember = function() {
 function checkMemberStatus() {
   const row = document.getElementById('memberRow');
   const txt = document.getElementById('memberStatusTxt');
-  const btn = document.getElementById('btnRedeem');
+  const redeemWrap = document.getElementById('redeemWrap');
+  const tierSelect = document.getElementById('redeemTierSelect');
   if (!row) return;
   const phone = normalizePhone(document.getElementById('f_phone').value);
   const mode = document.getElementById('f_price').value;
@@ -1480,50 +1492,69 @@ function checkMemberStatus() {
 
   if (!phone || !m) {
     row.style.display = 'none';
-    if (appliedDiscount) { appliedDiscount = 0; calcTotal(); }
+    if (appliedDiscount) { appliedDiscount = 0; appliedRedeemPoints = 0; calcTotal(); }
     return;
   }
   row.style.display = '';
   const pts = getMemberPoints(phone);
-  const canRedeem = !editingId && mode !== 'agoda' && appliedDiscount === 0 && pts.usable >= POINT_REDEEM;
-  btn.style.display = canRedeem ? '' : 'none';
+
+  const canRedeemAny = !editingId && mode !== 'agoda' && appliedDiscount === 0;
+  const availableTiers = REDEEM_TIERS.filter(t => pts.usable >= t.points);
+
+  if (canRedeemAny && availableTiers.length > 0) {
+    redeemWrap.style.display = 'flex';
+    tierSelect.innerHTML = availableTiers
+      .map(t => `<option value="${t.points}">${t.points} แต้ม = ส่วนลด ${t.value.toLocaleString()} บ.</option>`)
+      .join('');
+    tierSelect.value = availableTiers[availableTiers.length - 1].points; // เลือกระดับสูงสุดที่แลกได้เป็นค่าเริ่มต้น
+  } else {
+    redeemWrap.style.display = 'none';
+  }
+
   txt.textContent = `🎖 สมาชิก: ${m.name || phone} — ${pts.usable} แต้ม`
     + (pts.pending ? ` (+${pts.pending} รอครบ 1 วัน)` : '')
-    + (appliedDiscount ? ` (ใช้ส่วนลดแล้ว -${REDEEM_VALUE})` : '');
+    + (appliedDiscount ? ` (ใช้ส่วนลดแล้ว -${appliedDiscount.toLocaleString()})` : '');
 }
 
 window.redeemPoints = function() {
   const phone = normalizePhone(document.getElementById('f_phone').value);
   const m = members[phone];
-  if (editingId) return; // แลกได้เฉพาะตอนสร้างการจองใหม่
+  if (editingId) return;
+  const tierSelect = document.getElementById('redeemTierSelect');
+  const chosenPoints = parseInt(tierSelect.value, 10);
+  const tier = REDEEM_TIERS.find(t => t.points === chosenPoints);
+  if (!tier) { showToast('⚠️ กรุณาเลือกระดับแต้มที่จะแลก'); return; }
+
   const pts = m ? getMemberPoints(phone) : { usable: 0 };
-  if (!m || pts.usable < POINT_REDEEM) { showToast('⚠️ แต้มไม่พอสำหรับแลกส่วนลด'); return; }
+  if (!m || pts.usable < tier.points) { showToast('⚠️ แต้มไม่พอสำหรับแลกส่วนลดนี้'); return; }
   if (appliedDiscount > 0) return;
-  appliedDiscount = REDEEM_VALUE;
+
+  appliedDiscount = tier.value;
+  appliedRedeemPoints = tier.points;
   calcTotal();
   checkMemberStatus();
-  showToast('🎁 ใช้ส่วนลดสมาชิก 690 บ. แล้ว (แต้มจะถูกหักจริงตอนกดบันทึก)');
+  showToast(`🎁 ใช้ส่วนลด ${tier.value.toLocaleString()} บ. แล้ว (หัก ${tier.points} แต้มตอนกดบันทึก)`);
 };
 
 // หักแต้ม+บันทึกแต้มใหม่ลง ledger — เรียกหลังบันทึกการจอง "ใหม่" สำเร็จเท่านั้น
-function awardPoints(phoneRaw, isAgoda, roomTotal, discount, checkoutISO) {
-  if (isAgoda) return; // Agoda ไม่นับแต้ม
+function awardPoints(phoneRaw, isAgoda, roomTotal, discount, redeemPointsUsed, checkoutISO) {
+  if (isAgoda) return;
   const phone = normalizePhone(phoneRaw);
   const m = members[phone];
-  if (!m) return; // ยังไม่ได้สมัครสมาชิก ไม่นับแต้มย้อนหลัง
+  if (!m) return;
 
   const earned = Math.floor(roomTotal / POINT_BASE);
   const updates = {};
   const now = Date.now();
-  const earnAt = isoToDate(checkoutISO).getTime(); // เริ่มนับ 1 วัน/หมดอายุ จากวัน check-out
+  const earnAt = isoToDate(checkoutISO).getTime();
 
   if (earned > 0) {
     const id = push(ref(db, 'members/' + phone + '/ledger')).key;
     updates['members/' + phone + '/ledger/' + id] = { type: 'earn', points: earned, earnAt, createdAt: now, roomTotal };
   }
-  if (discount > 0) {
+  if (discount > 0 && redeemPointsUsed > 0) {
     const id2 = push(ref(db, 'members/' + phone + '/ledger')).key;
-    updates['members/' + phone + '/ledger/' + id2] = { type: 'redeem', points: POINT_REDEEM, createdAt: now };
+    updates['members/' + phone + '/ledger/' + id2] = { type: 'redeem', points: redeemPointsUsed, createdAt: now, value: discount };
   }
   if (Object.keys(updates).length === 0) return;
   updates['members/' + phone + '/updatedAt'] = now;
@@ -1709,6 +1740,9 @@ window.openAddModal = function(roomNum, iso) {
   editingId = null;
   document.getElementById('modalTitle').textContent = 'เพิ่มการจอง';
   document.getElementById('btnDelete').style.display = 'none';
+  document.getElementById('btnPostpone').style.display = 'none';
+  document.getElementById('f_checkin').style.borderColor = '';
+  document.getElementById('f_checkout').style.borderColor = '';
 
   // Populate room select
   populateRoomSelect(roomNum);
@@ -1734,6 +1768,7 @@ window.openAddModal = function(roomNum, iso) {
   document.getElementById('f_price').value = 'auto';
   document.getElementById('f_flat').value = '';
   appliedDiscount = 0;
+  appliedRedeemPoints = 0;
   checkMemberStatus();
   calcTotal();
 
@@ -1763,11 +1798,63 @@ window.openEditModal = function(e, id) {
   document.getElementById('f_price').value = priceMode;
   document.getElementById('f_extrabed').value = b.extrabed || 0;
   document.getElementById('f_flat').value = priceMode === 'flat' ? (b.roomTotal || '') : '';
+  const b2 = bookings[id];
+  document.getElementById('btnPostpone').style.display = (b2 && !b2.isAgoda) ? 'inline-block' : 'none';
   appliedDiscount = 0;   // แก้ไขการจองเดิม ไม่ให้แลกแต้มซ้ำ
+  appliedRedeemPoints = 0;
   checkMemberStatus();
   calcTotal();
 
+  const postponed = !!b.noPoints;
+  document.getElementById('f_checkin').style.borderColor = postponed ? 'var(--orange)' : '';
+  document.getElementById('f_checkout').style.borderColor = postponed ? 'var(--orange)' : '';
+
+  if (postponed) {
+    showToast('ℹ️ การจองนี้ถูกเลื่อนวันพัก — จะไม่นับแต้มสะสม');
+  }
+
   document.getElementById('modalOverlay').classList.add('show');
+};
+
+window.postponeBooking = function() {
+  if (!editingId || !db) return;
+  const b = bookings[editingId];
+  if (!b) return;
+
+  if (!confirm('เลื่อนวันพักนี้จะไม่นับแต้มสะสมสำหรับการเข้าพักครั้งนี้\n(แต้มที่เคยได้จากการจองนี้ ถ้ามี จะถูกหักคืน)\n\nดำเนินการต่อ?')) return;
+
+  const phone = normalizePhone(b.phone);
+  const updates = {};
+  const now = Date.now();
+  
+  // หักแต้มคืนถ้าเคยให้ไปแล้ว
+  if (b.pointsAwarded && phone && members[phone]) {
+    const earnedForThisBooking = Math.floor((Number(b.roomTotal) || 0) / POINT_BASE);
+    if (earnedForThisBooking > 0) {
+      const vId = push(ref(db, 'members/' + phone + '/ledger')).key;
+      updates['members/' + phone + '/ledger/' + vId] = {
+        type: 'void', points: earnedForThisBooking, createdAt: now,
+        reason: 'ยกเลิกแต้มจากการเลื่อนวันพัก', bookingId: editingId
+      };
+      updates['members/' + phone + '/updatedAt'] = now;
+    }
+  }
+
+  updates['bookings/' + editingId + '/noPoints'] = true;
+  updates['bookings/' + editingId + '/pointsAwarded'] = false;
+  updates['bookings/' + editingId + '/postponedAt'] = now;
+
+  update(ref(db), updates)
+    .then(() => {
+      if (bookings[editingId]) {
+        bookings[editingId].noPoints = true;
+        bookings[editingId].pointsAwarded = false;
+      }
+      document.getElementById('f_checkin').style.borderColor = 'var(--orange)';
+      document.getElementById('f_checkout').style.borderColor = 'var(--orange)';
+      showToast('📅 ทำเครื่องหมายเลื่อนวันพักแล้ว — แก้ไขวัน Check-in/out แล้วกดบันทึกได้เลย');
+    })
+    .catch(e => showToast('❌ ' + e.message));
 };
 
 window.closeModal = function() {
@@ -1970,7 +2057,15 @@ window.saveBooking = function() {
   const data = { room, checkin, checkout, name, phone, guests,
     price, roomTotal, peakNights, weekdayNights, nights, priceMode: mode,
     extrabed, totalPrice, isAgoda, note, discount: appliedDiscount,
-    color: isAgoda ? AGODA_COLOR : selectedColor, updatedAt: Date.now() };
+    color: isAgoda ? AGODA_COLOR : selectedColor, updatedAt: Date.now(),
+    noPoints: editingId ? !!(bookings[editingId] && bookings[editingId].noPoints) : false,
+    pointsAwarded: editingId ? !!(bookings[editingId] && bookings[editingId].pointsAwarded) : false };
+
+  if (!editingId) {
+    const memberExists = !isAgoda && !!members[normalizePhone(phone)];
+    const earnedPreview = memberExists ? Math.floor(roomTotal / POINT_BASE) : 0;
+    data.pointsAwarded = earnedPreview > 0;
+  }
 
   const syncDot = document.getElementById('syncDot');
   syncDot.className = 'sync-dot syncing';
@@ -1984,8 +2079,9 @@ window.saveBooking = function() {
     push(ref(db, 'bookings'), data)
       .then(() => {
         showToast('✅ บันทึกการจองแล้ว');
-        awardPoints(phone, isAgoda, roomTotal, appliedDiscount, checkout);
+        awardPoints(phone, isAgoda, roomTotal, appliedDiscount, appliedRedeemPoints, checkout);
         appliedDiscount = 0;
+        appliedRedeemPoints = 0;
         closeModal();
       })
       .catch(e => showToast('❌ ' + e.message));
