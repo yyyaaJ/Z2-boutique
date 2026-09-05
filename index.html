@@ -1181,6 +1181,7 @@ async function initFirebase(cfg) {
         subscribeBookings();
         subscribeHolidays();
         subscribeMembers();
+        subscribeAdminStatus(user.uid);
       } else {
         // ยังไม่ login: ซ่อนข้อมูลทั้งหมด แสดงหน้า login
         bookings = {};
@@ -1334,6 +1335,17 @@ function subscribeMembers() {
   }, (err) => showToast('❌ โหลดข้อมูลสมาชิกไม่สำเร็จ: ' + err.message));
 }
 
+let isAdmin = false;
+let adminUnsub = null;
+
+function subscribeAdminStatus(uid) {
+  if (adminUnsub) adminUnsub();
+  adminUnsub = onValue(ref(db, 'admins/' + uid), (snap) => {
+    isAdmin = snap.val() === true;
+    if (document.getElementById('memberOverlay').classList.contains('show')) renderMemberList();
+  }, () => { isAdmin = false; });
+}
+
 // คำนวณแต้มที่ใช้แลกได้จริง ณ ตอนนี้ + แต้มที่ยังรอครบ 1 วันหลัง check-out (จาก ledger)
 function getMemberPoints(phoneRaw) {
   const phone = normalizePhone(phoneRaw);
@@ -1380,15 +1392,16 @@ function renderMemberList() {
       <div class="holiday-item">
         <span><span class="hi-date">${escapeHtml(m.phone)}</span> ${escapeHtml(m.name||'')} — ${m._pts.usable} แต้ม${m._pts.pending ? ` (+${m._pts.pending} รอครบ 1 วัน)` : ''}</span>
         <span style="display:flex;gap:10px">
-          <button type="button" onclick="adjustMemberPoints('${m.phone}')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;text-decoration:underline">แก้แต้ม</button>
+          ${isAdmin ? `<button type="button" onclick="adjustMemberPoints('${m.phone}')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;text-decoration:underline">แก้แต้ม</button>` : ''}
           <button type="button" onclick="startEditMember('${m.phone}')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;text-decoration:underline">แก้ไข</button>
-          <button type="button" onclick="deleteMember('${m.phone}')" style="background:none;border:none;color:#e5484d;cursor:pointer;font-size:13px;text-decoration:underline">ลบสมาชิก</button>
+          ${isAdmin ? `<button type="button" onclick="deleteMember('${m.phone}')" style="background:none;border:none;color:#e5484d;cursor:pointer;font-size:13px;text-decoration:underline">ลบสมาชิก</button>` : ''}
         </span>
       </div>`).join('');
 }
 
 // ปรับแต้มด้วยมือ (บวกหรือลบก็ได้) — มีผลทันที ไม่ติดเงื่อนไข 1 วัน/2 ปี
 window.adjustMemberPoints = function(phone) {
+  if (!isAdmin) { showToast('⛔ เฉพาะผู้ดูแลระบบเท่านั้นที่ปรับแต้มได้'); return; }
   const pts = getMemberPoints(phone).usable;
   const input = prompt(`ปรับแต้มของเบอร์ ${phone}\nแต้มปัจจุบัน: ${pts}\n\nพิมพ์จำนวนที่จะปรับ เช่น 5 (เพิ่ม 5 แต้ม) หรือ -5 (หัก 5 แต้ม)`);
   if (input === null) return;
@@ -1408,6 +1421,7 @@ window.adjustMemberPoints = function(phone) {
 
 // ลบสมาชิกทั้งคน (ลบประวัติแต้มทั้งหมดด้วย) — ลบแล้วกู้คืนไม่ได้
 window.deleteMember = function(phone) {
+  if (!isAdmin) { showToast('⛔ เฉพาะผู้ดูแลระบบเท่านั้นที่ลบสมาชิกได้'); return; }
   const m = members[phone];
   if (!confirm(`ลบสมาชิกเบอร์ ${phone}${m && m.name ? ' (' + m.name + ')' : ''} และแต้มทั้งหมด?\nการลบนี้ย้อนคืนไม่ได้`)) return;
   remove(ref(db, 'members/' + phone))
